@@ -1,0 +1,225 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector]
+}
+
+model Tenant {
+  id            String               @id @default(uuid())
+  name          String
+  email         String               @unique
+  phone         String?
+  industry      String?
+  plan          String               @default("starter")
+  isActive      Boolean              @default(true)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  users         User[]
+  leads         Lead[]
+  knowledgeDocs KnowledgeDoc[]
+  automations   AutomationSequence[]
+  appointments  Appointment[]
+  apiKeys       ApiKey[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("agent")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdLeads Lead[]   @relation("CreatedBy")
+}
+
+model Lead {
+  id                  String             @id @default(uuid())
+  tenantId            String
+  name                String
+  email               String?
+  phone               String?
+  source              String
+  status              String             @default("new")
+  service             String?
+  urgency             String?
+  budget              String?
+  leadScore           Int?
+  qualification       String?
+  notes               String?
+  assignedTo          String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  tenant              Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy           User?              @relation("CreatedBy", fields: [assignedTo], references: [id])
+  messages            Message[]
+  appointments        Appointment[]
+  followUps           FollowUp[]
+  qualificationResult LeadQualification?
+
+  @@index([tenantId])
+  @@index([assignedTo])
+  @@index([status])
+}
+
+model LeadQualification {
+  id            String   @id @default(uuid())
+  leadId        String   @unique
+  service       String?
+  urgency       String?
+  budget        String?
+  leadScore     Int
+  qualification String
+  intent        String?
+  rawResponse   String?
+  createdAt     DateTime @default(now())
+  lead          Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  leadId    String
+  tenantId  String
+  direction String
+  channel   String
+  content   String
+  status    String   @default("sent")
+  sentAt    DateTime @default(now())
+  metadata  Json?
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@index([channel])
+}
+
+model KnowledgeDoc {
+  id        String     @id @default(uuid())
+  tenantId  String
+  name      String
+  type      String
+  content   String
+  fileUrl   String?
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chunks    DocChunk[]
+
+  @@index([tenantId])
+}
+
+model DocChunk {
+  id         String       @id @default(uuid())
+  docId      String
+  tenantId   String
+  chunkIndex Int
+  content    String
+  createdAt  DateTime     @default(now())
+  doc        KnowledgeDoc @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([docId])
+}
+
+model AutomationSequence {
+  id        String           @id @default(uuid())
+  tenantId  String
+  name      String
+  trigger   String
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  steps     AutomationStep[]
+
+  @@index([tenantId])
+  @@index([trigger])
+}
+
+model AutomationStep {
+  id           String             @id @default(uuid())
+  sequenceId   String
+  stepNumber   Int
+  delayHours   Int                @default(0)
+  channel      String
+  templateBody String
+  subject      String?
+  createdAt    DateTime           @default(now())
+  sequence     AutomationSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  @@index([sequenceId])
+}
+
+model FollowUp {
+  id          String    @id @default(uuid())
+  leadId      String
+  tenantId    String
+  stepNumber  Int
+  channel     String
+  status      String    @default("pending")
+  scheduledAt DateTime
+  sentAt      DateTime?
+  content     String
+  lead        Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model Appointment {
+  id          String   @id @default(uuid())
+  leadId      String
+  tenantId    String
+  title       String
+  scheduledAt DateTime
+  duration    Int      @default(60)
+  status      String   @default("scheduled")
+  calEventId  String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@index([scheduledAt])
+}
+
+model ApiKey {
+  id        String    @id @default(uuid())
+  tenantId  String
+  name      String
+  keyHash   String    @unique
+  lastUsed  DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model WebhookLog {
+  id        String   @id @default(uuid())
+  tenantId  String?
+  source    String
+  payload   Json
+  status    String   @default("received")
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([source])
+  @@index([status])
+}
