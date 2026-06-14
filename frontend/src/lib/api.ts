@@ -12,7 +12,7 @@ api.interceptors.request.use((config) => {
     return config;
   }
 
-  const token = window.localStorage.getItem("leadflow_token");
+  const token = window.localStorage.getItem("lf_token");
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -29,7 +29,8 @@ api.interceptors.response.use(
       error.response?.status === 401 &&
       window.location.pathname !== "/login"
     ) {
-      window.localStorage.removeItem("leadflow_token");
+      window.localStorage.removeItem("lf_token");
+      window.localStorage.removeItem("lf_user");
       window.location.assign("/login");
     }
 

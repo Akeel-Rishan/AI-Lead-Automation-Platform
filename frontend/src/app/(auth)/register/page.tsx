@@ -10,12 +10,15 @@ import { z } from "zod";
 import { api } from "@/lib/api";
 import { setToken, setUser, type StoredUser } from "@/lib/auth";
 
-const loginSchema = z.object({
+const registerSchema = z.object({
+  tenantName: z.string().min(2, "Business name must be at least 2 characters"),
+  name: z.string().min(2, "Your name must be at least 2 characters"),
   email: z.string().min(1, "Email is required").email("Enter a valid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters")
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  industry: z.string().optional()
 });
 
-type LoginInput = z.infer<typeof loginSchema>;
+type RegisterInput = z.infer<typeof registerSchema>;
 
 type AuthResponse = {
   success: boolean;
@@ -23,32 +26,45 @@ type AuthResponse = {
   user: StoredUser;
 };
 
-export default function LoginPage() {
+const industries = [
+  "Construction",
+  "Real Estate",
+  "Healthcare",
+  "Legal",
+  "Finance",
+  "Home Services",
+  "Other"
+];
+
+export default function RegisterPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting }
-  } = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema),
+  } = useForm<RegisterInput>({
+    resolver: zodResolver(registerSchema),
     defaultValues: {
+      tenantName: "",
+      name: "",
       email: "",
-      password: ""
+      password: "",
+      industry: ""
     }
   });
 
-  async function onSubmit(values: LoginInput) {
+  async function onSubmit(values: RegisterInput) {
     setError("");
 
     try {
-      const response = await api.post<AuthResponse>("/auth/login", values);
+      const response = await api.post<AuthResponse>("/auth/register", values);
 
       setToken(response.data.token);
       setUser(response.data.user);
       router.push("/dashboard");
     } catch (err: any) {
-      setError(err.response?.data?.error ?? "Unable to sign in. Please try again.");
+      setError(err.response?.data?.error ?? "Unable to create your account. Please try again.");
     }
   }
 
@@ -63,11 +79,44 @@ export default function LoginPage() {
         </div>
 
         <div className="mt-8">
-          <h1 className="text-2xl font-bold text-white">Welcome back</h1>
-          <p className="mt-2 text-sm text-slate-400">Sign in to your account</p>
+          <h1 className="text-2xl font-bold text-white">Start your free trial</h1>
+          <p className="mt-2 text-sm text-slate-400">Set up your account in seconds</p>
         </div>
 
         <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)}>
+          <div>
+            <label className="text-sm font-medium text-slate-300" htmlFor="tenantName">
+              Business Name
+            </label>
+            <input
+              className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-800 p-3 text-white outline-none placeholder:text-slate-500 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
+              id="tenantName"
+              placeholder="Acme Roofing Co."
+              type="text"
+              {...register("tenantName")}
+            />
+            {errors.tenantName ? (
+              <p className="mt-2 text-sm text-red-400">{errors.tenantName.message}</p>
+            ) : null}
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-slate-300" htmlFor="name">
+              Your Name
+            </label>
+            <input
+              autoComplete="name"
+              className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-800 p-3 text-white outline-none placeholder:text-slate-500 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
+              id="name"
+              placeholder="John Smith"
+              type="text"
+              {...register("name")}
+            />
+            {errors.name ? (
+              <p className="mt-2 text-sm text-red-400">{errors.name.message}</p>
+            ) : null}
+          </div>
+
           <div>
             <label className="text-sm font-medium text-slate-300" htmlFor="email">
               Email
@@ -76,7 +125,7 @@ export default function LoginPage() {
               autoComplete="email"
               className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-800 p-3 text-white outline-none placeholder:text-slate-500 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
               id="email"
-              placeholder="you@company.com"
+              placeholder="john@acmeroofing.com"
               type="email"
               {...register("email")}
             />
@@ -90,16 +139,34 @@ export default function LoginPage() {
               Password
             </label>
             <input
-              autoComplete="current-password"
+              autoComplete="new-password"
               className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-800 p-3 text-white outline-none placeholder:text-slate-500 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
               id="password"
-              placeholder="Enter your password"
+              placeholder="Minimum 8 characters"
               type="password"
               {...register("password")}
             />
             {errors.password ? (
               <p className="mt-2 text-sm text-red-400">{errors.password.message}</p>
             ) : null}
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-slate-300" htmlFor="industry">
+              Industry
+            </label>
+            <select
+              className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-800 p-3 text-white outline-none focus:border-transparent focus:ring-2 focus:ring-indigo-500"
+              id="industry"
+              {...register("industry")}
+            >
+              <option value="">Select industry</option>
+              {industries.map((industry) => (
+                <option key={industry} value={industry}>
+                  {industry}
+                </option>
+              ))}
+            </select>
           </div>
 
           {error ? (
@@ -117,18 +184,18 @@ export default function LoginPage() {
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing in...
+                Creating account...
               </>
             ) : (
-              "Sign in"
+              "Create account"
             )}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-slate-400">
-          Don&apos;t have an account?{" "}
-          <Link className="font-medium text-indigo-400 hover:text-indigo-300" href="/register">
-            Start free trial
+          Already have an account?{" "}
+          <Link className="font-medium text-indigo-400 hover:text-indigo-300" href="/login">
+            Sign in
           </Link>
         </p>
       </section>
