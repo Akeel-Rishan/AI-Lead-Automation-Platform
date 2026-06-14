@@ -1,5 +1,5 @@
 import { z } from "zod";
-import openai from "../lib/openai";
+import { generateGeminiJson } from "../lib/googleAI";
 import { prisma } from "../lib/prisma";
 import { AppError } from "../middleware/errorHandler";
 import { getLeadById } from "../services/leadService";
@@ -123,26 +123,13 @@ function extractJson(content: string) {
 }
 
 export async function qualifyLead(input: QualificationInput): Promise<QualificationOutput> {
-  if (!process.env.OPENAI_API_KEY?.trim()) {
-    return fallbackQualification("OpenAI API key is not configured");
-  }
-
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const content = await generateGeminiJson({
+      systemPrompt,
+      userPrompt: buildUserPrompt(input),
       temperature: 0.3,
-      max_tokens: 500,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: buildUserPrompt(input) }
-      ]
+      maxOutputTokens: 500
     });
-
-    const content = response.choices[0]?.message?.content;
-
-    if (!content) {
-      return fallbackQualification("AI response was empty");
-    }
 
     const parsedJson = JSON.parse(extractJson(content));
     const parsed = qualificationOutputSchema.safeParse(parsedJson);
@@ -158,8 +145,10 @@ export async function qualifyLead(input: QualificationInput): Promise<Qualificat
       leadScore,
       qualification: normalizeQualification(leadScore)
     };
-  } catch {
-    return fallbackQualification("Unable to parse AI response");
+  } catch (error) {
+    return fallbackQualification(
+      error instanceof Error ? error.message : "Unable to parse Google Gemini response"
+    );
   }
 }
 

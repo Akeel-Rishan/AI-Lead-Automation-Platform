@@ -1,0 +1,75 @@
+import { env } from "../config/env";
+
+type GeminiPart = {
+  text?: string;
+};
+
+type GeminiResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: GeminiPart[];
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+};
+
+const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
+export async function generateGeminiJson({
+  systemPrompt,
+  userPrompt,
+  temperature = 0.3,
+  maxOutputTokens = 500
+}: {
+  systemPrompt: string;
+  userPrompt: string;
+  temperature?: number;
+  maxOutputTokens?: number;
+}) {
+  if (!env.GOOGLE_API_KEY) {
+    throw new Error("Google API key is not configured");
+  }
+
+  const response = await fetch(`${GEMINI_ENDPOINT}?key=${encodeURIComponent(env.GOOGLE_API_KEY)}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: systemPrompt }]
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: userPrompt }]
+        }
+      ],
+      generationConfig: {
+        temperature,
+        maxOutputTokens,
+        responseMimeType: "application/json"
+      }
+    })
+  });
+
+  const data = (await response.json()) as GeminiResponse;
+
+  if (!response.ok) {
+    throw new Error(data.error?.message ?? "Google Gemini request failed");
+  }
+
+  const text = data.candidates?.[0]?.content?.parts
+    ?.map((part) => part.text ?? "")
+    .join("")
+    .trim();
+
+  if (!text) {
+    throw new Error("Google Gemini response was empty");
+  }
+
+  return text;
+}
