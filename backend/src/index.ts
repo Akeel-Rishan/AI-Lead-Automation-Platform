@@ -4,8 +4,11 @@ import helmet from "helmet";
 import morgan from "morgan";
 import { env } from "./config/env";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+import apiKeysRouter from "./routes/apikeys";
 import authRouter from "./routes/auth";
 import healthRouter from "./routes/health";
+import leadsRouter from "./routes/leads";
+import webhooksRouter from "./routes/webhooks";
 
 const app = express();
 
@@ -22,6 +25,9 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/health", healthRouter);
 app.use("/auth", authRouter);
+app.use("/leads", leadsRouter);
+app.use("/webhooks", webhooksRouter);
+app.use("/api-keys", apiKeysRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

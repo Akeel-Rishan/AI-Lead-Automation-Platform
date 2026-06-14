@@ -43,6 +43,7 @@ const envSchema = z.object({
     },
     z.string().email("RESEND_FROM_EMAIL must be a valid email").optional()
   ),
+  FACEBOOK_VERIFY_TOKEN: optionalEnvString,
   FRONTEND_URL: z.string().url().default("http://localhost:3000")
 });
 
