@@ -123,14 +123,24 @@ function extractJson(content: string) {
 }
 
 export async function qualifyLead(input: QualificationInput): Promise<QualificationOutput> {
+  let content: string;
+
   try {
-    const content = await generateGeminiJson({
+    content = await generateGeminiJson({
       systemPrompt,
       userPrompt: buildUserPrompt(input),
       temperature: 0.3,
       maxOutputTokens: 500
     });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Google Gemini qualification request failed";
+    const statusCode = /quota|rate|too many requests/i.test(message) ? 429 : 502;
 
+    throw new AppError(message, statusCode);
+  }
+
+  try {
     const parsedJson = JSON.parse(extractJson(content));
     const parsed = qualificationOutputSchema.safeParse(parsedJson);
 
@@ -145,10 +155,8 @@ export async function qualifyLead(input: QualificationInput): Promise<Qualificat
       leadScore,
       qualification: normalizeQualification(leadScore)
     };
-  } catch (error) {
-    return fallbackQualification(
-      error instanceof Error ? error.message : "Unable to parse Google Gemini response"
-    );
+  } catch {
+    return fallbackQualification("Unable to parse Google Gemini response");
   }
 }
 

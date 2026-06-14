@@ -26,6 +26,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
   JWT_EXPIRES_IN: z.string().min(1).default("7d"),
   GOOGLE_API_KEY: optionalEnvString,
+  GOOGLE_GEMINI_MODEL: z.string().trim().min(1).default("gemini-3.5-flash"),
   TWILIO_ACCOUNT_SID: optionalEnvString,
   TWILIO_AUTH_TOKEN: optionalEnvString,
   TWILIO_PHONE_NUMBER: optionalEnvString,
