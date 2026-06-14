@@ -6,7 +6,7 @@ LeadFlow AI is an AI-powered lead automation CRM SaaS foundation for small busin
 
 - Frontend: Next.js 14, React, TypeScript, Tailwind CSS, Axios, React Hook Form, Zod, Recharts
 - Backend: Express.js, TypeScript, Prisma, PostgreSQL, Zod, JWT, bcryptjs
-- AI and messaging integrations: OpenAI, Twilio, Resend
+- AI and messaging integrations: Google AI API, Twilio, Resend
 - Data model: multi-tenant CRM entities with leads, messages, appointments, knowledge documents, automations, API keys, and webhook logs
 
 ## Setup
