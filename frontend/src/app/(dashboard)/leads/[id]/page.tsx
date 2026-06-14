@@ -59,10 +59,20 @@ function parseQualification(qualification?: LeadQualification | null) {
   }
 
   try {
-    return {
+    const parsedQualification = {
       ...qualification,
       ...JSON.parse(qualification.rawResponse)
     } as LeadQualification;
+
+    if (parsedQualification.reasoning === "OpenAI API key is not configured") {
+      return {
+        ...parsedQualification,
+        reasoning:
+          "This lead was qualified before Google Gemini was enabled. Re-run AI Qualification to score it with your Google API key."
+      };
+    }
+
+    return parsedQualification;
   } catch {
     return qualification;
   }

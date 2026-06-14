@@ -23,11 +23,23 @@ function parseRawQualification(rawResponse?: string | null) {
   }
 }
 
+function normalizeLegacyReasoning<T extends Partial<QualificationOutput>>(qualification: T) {
+  if (qualification.reasoning === "OpenAI API key is not configured") {
+    return {
+      ...qualification,
+      reasoning:
+        "This lead was qualified before Google Gemini was enabled. Re-run AI Qualification to score it with your Google API key."
+    };
+  }
+
+  return qualification;
+}
+
 function enrichQualification<T extends { rawResponse?: string | null }>(qualification: T) {
-  return {
+  return normalizeLegacyReasoning({
     ...qualification,
     ...parseRawQualification(qualification.rawResponse)
-  };
+  });
 }
 
 function delay(ms: number) {
