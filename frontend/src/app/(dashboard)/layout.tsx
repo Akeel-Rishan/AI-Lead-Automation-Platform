@@ -17,6 +17,8 @@ import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { isAuthenticated } from "@/lib/auth";
 import { useAuth } from "@/hooks/useAuth";
+import { ToastContainer } from "@/components/ui/Toast";
+import { ToastProvider, useToast } from "@/hooks/useToast";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -51,10 +53,11 @@ function initials(name?: string | null) {
     .join("");
 }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, tenant, isLoading, isAuthenticated: hasValidSession, logout } = useAuth();
+  const { toasts, removeToast } = useToast();
   const title = pageTitles[pathname] ?? "Dashboard";
 
   useEffect(() => {
@@ -153,6 +156,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
         <main className="min-h-[calc(100vh-4rem)] bg-slate-950 p-6">{children}</main>
       </div>
+      <ToastContainer removeToast={removeToast} toasts={toasts} />
     </div>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ToastProvider>
+      <DashboardShell>{children}</DashboardShell>
+    </ToastProvider>
   );
 }

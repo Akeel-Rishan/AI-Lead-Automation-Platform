@@ -7,16 +7,18 @@ import {
   Mail,
   MessageSquare,
   Phone,
-  Save,
-  Sparkles
+  Save
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import LeadScoreBadge from "@/components/leads/LeadScoreBadge";
 import LeadStatusBadge from "@/components/leads/LeadStatusBadge";
+import QualificationCard from "@/components/leads/QualificationCard";
 import { type LeadWithRelations } from "@/hooks/useLeads";
+import { useToast } from "@/hooks/useToast";
 import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import type { LeadQualification } from "@/types";
 
 const statusOptions = ["new", "contacted", "qualified", "unqualified", "converted", "lost"];
 
@@ -51,24 +53,30 @@ function Field({ label, value }: { label: string; value?: string | number | null
   );
 }
 
-function scoreColor(score: number) {
-  if (score >= 90) {
-    return "border-green-400 text-green-300";
+function parseQualification(qualification?: LeadQualification | null) {
+  if (!qualification?.rawResponse) {
+    return qualification ?? null;
   }
 
-  if (score >= 70) {
-    return "border-yellow-400 text-yellow-300";
+  try {
+    return {
+      ...qualification,
+      ...JSON.parse(qualification.rawResponse)
+    } as LeadQualification;
+  } catch {
+    return qualification;
   }
-
-  return "border-red-400 text-red-300";
 }
 
 export default function LeadDetailPage() {
   const params = useParams<{ id: string }>();
+  const { showToast } = useToast();
   const [lead, setLead] = useState<LeadWithRelations | null>(null);
+  const [qualification, setQualification] = useState<LeadQualification | null>(null);
   const [form, setForm] = useState<Partial<LeadWithRelations>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isQualifying, setIsQualifying] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,6 +92,7 @@ export default function LeadDetailPage() {
 
         if (isMounted) {
           setLead(response.data.lead);
+          setQualification(parseQualification(response.data.lead.qualificationResult));
           setForm(response.data.lead);
         }
       } catch (err: any) {
@@ -103,6 +112,32 @@ export default function LeadDetailPage() {
       isMounted = false;
     };
   }, [params.id]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchQualification() {
+      try {
+        const response = await api.get<{ success: boolean; qualification: LeadQualification }>(
+          `/ai/qualification/${params.id}`
+        );
+
+        if (isMounted) {
+          setQualification(response.data.qualification);
+        }
+      } catch (err: any) {
+        if (err.response?.status !== 404 && isMounted) {
+          showToast(err.response?.data?.error ?? "Unable to load qualification", "error");
+        }
+      }
+    }
+
+    fetchQualification();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [params.id, showToast]);
 
   async function updateLead(data: Partial<LeadWithRelations>) {
     if (!lead) {
@@ -137,6 +172,39 @@ export default function LeadDetailPage() {
     }));
   }
 
+  async function runQualification() {
+    if (!lead) {
+      return;
+    }
+
+    setIsQualifying(true);
+
+    try {
+      const response = await api.post<{ success: boolean; qualification: LeadQualification }>(
+        `/ai/qualify/${lead.id}`
+      );
+      const nextQualification = response.data.qualification;
+      setQualification(nextQualification);
+      setLead((currentLead) =>
+        currentLead
+          ? {
+              ...currentLead,
+              leadScore: nextQualification.leadScore,
+              qualification: nextQualification.qualification,
+              service: nextQualification.service || currentLead.service,
+              urgency: nextQualification.urgency,
+              status: nextQualification.qualification === "hot" ? "qualified" : currentLead.status
+            }
+          : currentLead
+      );
+      showToast("Lead qualified successfully", "success");
+    } catch (err: any) {
+      showToast(err.response?.data?.error ?? "Unable to qualify lead", "error");
+    } finally {
+      setIsQualifying(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -158,9 +226,6 @@ export default function LeadDetailPage() {
   if (!lead) {
     return null;
   }
-
-  const qualification = lead.qualificationResult;
-  const score = lead.leadScore ?? qualification?.leadScore ?? null;
 
   return (
     <div className="space-y-6">
@@ -185,6 +250,10 @@ export default function LeadDetailPage() {
               <div>
                 <div className="flex flex-wrap items-center gap-3">
                   <h2 className="text-2xl font-bold text-white">{lead.name}</h2>
+                  <LeadScoreBadge
+                    qualification={lead.qualification ?? qualification?.qualification}
+                    score={lead.leadScore ?? qualification?.leadScore}
+                  />
                   {sourceBadge(lead.source)}
                   <LeadStatusBadge status={lead.qualification ?? qualification?.qualification} />
                 </div>
@@ -319,32 +388,6 @@ export default function LeadDetailPage() {
             </div>
           </section>
 
-          {qualification ? (
-            <section className="rounded-xl border border-indigo-500/20 bg-slate-900 p-6">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-indigo-400" />
-                <h3 className="text-lg font-semibold text-white">AI Qualification</h3>
-              </div>
-              <div className="mt-6 grid gap-5 md:grid-cols-[140px_1fr]">
-                <div
-                  className={cn(
-                    "flex h-28 w-28 items-center justify-center rounded-full border-8 bg-slate-950 text-3xl font-bold",
-                    scoreColor(qualification.leadScore)
-                  )}
-                >
-                  {qualification.leadScore}
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Service" value={qualification.service} />
-                  <Field label="Urgency" value={qualification.urgency} />
-                  <Field label="Budget" value={qualification.budget} />
-                  <Field label="Intent" value={qualification.intent} />
-                  <Field label="Qualification" value={qualification.qualification} />
-                </div>
-              </div>
-            </section>
-          ) : null}
-
           <section className="rounded-xl border border-slate-800 bg-slate-900 p-6">
             <h3 className="text-lg font-semibold text-white">Messages / Activity</h3>
             <div className="mt-5 space-y-3">
@@ -371,6 +414,13 @@ export default function LeadDetailPage() {
         </div>
 
         <aside className="space-y-6">
+          <QualificationCard
+            isQualifying={isQualifying}
+            leadId={lead.id}
+            onQualify={runQualification}
+            qualification={qualification}
+          />
+
           <section className="rounded-xl border border-slate-800 bg-slate-900 p-5">
             <h3 className="font-semibold text-white">Quick Info</h3>
             <div className="mt-4 space-y-4">
@@ -422,10 +472,6 @@ export default function LeadDetailPage() {
           <section className="rounded-xl border border-slate-800 bg-slate-900 p-5">
             <h3 className="font-semibold text-white">Quick Actions</h3>
             <div className="mt-4 space-y-3">
-              <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500" type="button">
-                <Sparkles className="h-4 w-4" />
-                Run AI Qualification
-              </button>
               <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-500" type="button">
                 <Calendar className="h-4 w-4" />
                 Schedule Appointment

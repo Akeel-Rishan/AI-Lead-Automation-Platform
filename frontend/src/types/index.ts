@@ -86,6 +86,8 @@ export interface LeadQualification {
   leadScore: number;
   qualification: Qualification;
   intent?: string | null;
+  reasoning?: string | null;
+  suggestedResponse?: string | null;
   rawResponse?: string | null;
   createdAt: string;
 }

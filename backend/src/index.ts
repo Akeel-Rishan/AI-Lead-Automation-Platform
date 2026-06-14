@@ -4,6 +4,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import { env } from "./config/env";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+import aiRouter from "./routes/ai";
 import apiKeysRouter from "./routes/apikeys";
 import authRouter from "./routes/auth";
 import healthRouter from "./routes/health";
@@ -28,6 +29,7 @@ app.use("/auth", authRouter);
 app.use("/leads", leadsRouter);
 app.use("/webhooks", webhooksRouter);
 app.use("/api-keys", apiKeysRouter);
+app.use("/ai", aiRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

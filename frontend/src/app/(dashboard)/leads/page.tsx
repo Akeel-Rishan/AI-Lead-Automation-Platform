@@ -1,11 +1,14 @@
 "use client";
 
-import { Edit, Eye, Plus, Search, Trash2, Users } from "lucide-react";
+import { Edit, Eye, Plus, Search, Sparkles, Trash2, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import AddLeadModal from "@/components/leads/AddLeadModal";
+import LeadScoreBadge from "@/components/leads/LeadScoreBadge";
 import LeadStatusBadge from "@/components/leads/LeadStatusBadge";
-import { useLeads, type LeadWithRelations } from "@/hooks/useLeads";
+import { useLeads } from "@/hooks/useLeads";
+import { useToast } from "@/hooks/useToast";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const statusOptions = [
@@ -63,28 +66,6 @@ function sourceBadge(source: string) {
   );
 }
 
-function scoreCell(lead: LeadWithRelations) {
-  const score = lead.leadScore ?? lead.qualificationResult?.leadScore ?? null;
-
-  if (score === null) {
-    return (
-      <span className="inline-flex items-center gap-2 text-sm text-slate-500">
-        <span className="h-2 w-2 rounded-full bg-slate-600" />
-        --
-      </span>
-    );
-  }
-
-  const dotClassName = score >= 90 ? "bg-green-400" : score >= 70 ? "bg-yellow-400" : "bg-red-400";
-
-  return (
-    <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-200">
-      <span className={cn("h-2 w-2 rounded-full", dotClassName)} />
-      {score}
-    </span>
-  );
-}
-
 function formatDate(date: string) {
   return new Intl.DateTimeFormat("en", {
     month: "short",
@@ -111,6 +92,7 @@ function SkeletonRows() {
 
 export default function LeadsPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const {
     leads,
     total,
@@ -125,6 +107,7 @@ export default function LeadsPage() {
     deleteLead
   } = useLeads();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isQualifyingBatch, setIsQualifyingBatch] = useState(false);
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   async function handleDelete(id: string) {
@@ -135,6 +118,20 @@ export default function LeadsPage() {
     }
   }
 
+  async function handleQualifyBatch() {
+    setIsQualifyingBatch(true);
+
+    try {
+      const response = await api.post<{ success: boolean; processed: number }>("/ai/qualify-batch");
+      await fetchLeads(filters);
+      showToast(`${response.data.processed} leads qualified`, "success");
+    } catch (err: any) {
+      showToast(err.response?.data?.error ?? "Unable to qualify leads", "error");
+    } finally {
+      setIsQualifyingBatch(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -142,14 +139,29 @@ export default function LeadsPage() {
           <h2 className="text-2xl font-bold text-white">Leads</h2>
           <p className="mt-1 text-sm text-slate-400">{total} total</p>
         </div>
-        <button
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
-          onClick={() => setIsModalOpen(true)}
-          type="button"
-        >
-          <Plus className="h-4 w-4" />
-          Add Lead
-        </button>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isQualifyingBatch}
+            onClick={handleQualifyBatch}
+            type="button"
+          >
+            {isQualifyingBatch ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-transparent" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            {isQualifyingBatch ? "Qualifying..." : "Qualify All"}
+          </button>
+          <button
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
+            onClick={() => setIsModalOpen(true)}
+            type="button"
+          >
+            <Plus className="h-4 w-4" />
+            Add Lead
+          </button>
+        </div>
       </header>
 
       <section className="grid gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 md:grid-cols-[1fr_180px_180px_160px]">
@@ -236,7 +248,12 @@ export default function LeadsPage() {
                       </td>
                       <td className="px-4 py-4">{sourceBadge(lead.source)}</td>
                       <td className="px-4 py-4 text-sm text-slate-300">{lead.service ?? "--"}</td>
-                      <td className="px-4 py-4">{scoreCell(lead)}</td>
+                      <td className="px-4 py-4">
+                        <LeadScoreBadge
+                          qualification={lead.qualification ?? lead.qualificationResult?.qualification}
+                          score={lead.leadScore ?? lead.qualificationResult?.leadScore}
+                        />
+                      </td>
                       <td className="px-4 py-4">
                         <LeadStatusBadge status={lead.status} />
                       </td>

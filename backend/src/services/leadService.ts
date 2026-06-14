@@ -1,6 +1,7 @@
 import type { Lead, Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { AppError } from "../middleware/errorHandler";
+import { triggerAutoQualification } from "./autoQualifyService";
 
 export type CreateLeadInput = {
   tenantId: string;
@@ -32,7 +33,7 @@ export type LeadListResult = {
 };
 
 export async function createLead(data: CreateLeadInput): Promise<Lead> {
-  return prisma.lead.create({
+  const lead = await prisma.lead.create({
     data: {
       tenantId: data.tenantId,
       name: data.name,
@@ -46,6 +47,10 @@ export async function createLead(data: CreateLeadInput): Promise<Lead> {
       assignedTo: data.assignedTo
     }
   });
+
+  triggerAutoQualification(lead.id, lead.tenantId);
+
+  return lead;
 }
 
 export async function getLeadsByTenant(
