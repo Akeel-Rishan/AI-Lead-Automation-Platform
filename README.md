@@ -12,7 +12,7 @@ LeadFlow AI is an AI-powered lead automation CRM SaaS foundation for small busin
 ## Setup
 
 1. `cd backend && npm install`
-2. `cp .env.example .env` and fill in the required values
+2. `cp .env.example .env` and fill in `DATABASE_URL` and `JWT_SECRET`
 3. `npm run db:push`
 4. `npm run dev`
 5. `cd ../frontend && npm install`
@@ -22,3 +22,5 @@ LeadFlow AI is an AI-powered lead automation CRM SaaS foundation for small busin
 The backend runs on `http://localhost:4000`.
 
 The frontend runs on `http://localhost:3000`.
+
+`GOOGLE_API_KEY`, `TWILIO_*`, and `RESEND_*` can be filled later when those integrations are connected.
