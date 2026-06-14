@@ -130,7 +130,7 @@ export async function qualifyLead(input: QualificationInput): Promise<Qualificat
       systemPrompt,
       userPrompt: buildUserPrompt(input),
       temperature: 0.3,
-      maxOutputTokens: 500
+      maxOutputTokens: 2048
     });
   } catch (error) {
     const message =

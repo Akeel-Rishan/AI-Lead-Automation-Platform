@@ -108,12 +108,31 @@ export interface KnowledgeDoc {
   id: string;
   tenantId: string;
   name: string;
-  type: "pdf" | "txt" | "docx" | "faq" | "pricing" | "policy" | string;
+  type: string;
   content: string;
   fileUrl?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  _count?: { chunks: number };
+}
+
+export interface DocChunk {
+  id: string;
+  docId: string;
+  content: string;
+  chunkIndex: number;
+}
+
+export interface KnowledgeAnswer {
+  answer: string;
+  sources: Array<{
+    docName: string;
+    chunkContent: string;
+    similarity: number;
+  }>;
+  confidence: "high" | "medium" | "low";
+  hadRelevantDocs: boolean;
 }
 
 export interface Appointment {
